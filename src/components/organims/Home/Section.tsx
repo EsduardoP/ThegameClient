@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Circle from "../../atoms/Circle";
+import iconGoogle from '../../../assets/img/icon-google.png';
 
 interface Jugador {
     id:string;
@@ -10,7 +11,6 @@ interface Jugador {
 }
 
 const SectionHome = () => {
-    const [nickname, setNickname] = useState('');
     const [allJugadores, setAllJugadores] = useState<Jugador[]>([]);
     const [allJugadoresRecientes, setAllJugadoresRecientes] = useState<Jugador[]>([]);
     const [connectedPlayers, setConnectedPlayers] = useState<string[]>([]);
@@ -29,72 +29,108 @@ const SectionHome = () => {
 
 
     // Nuevo jugador al entrar
-    const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setNickname(event.target.value);
-    }; 
+    const [nickname, setNickname] = useState('');
+    const [passwd, setPasswd] = useState('');
+    const [nicknameError, setNicknameError] = useState('');
+    const [passwdError, setPasswdError] = useState('');
+
+    const handleInputNicknameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+        if (/\s/.test(value)) {
+            setNicknameError('El nombre de usuario no debe contener espacios.');
+        } else {
+            setNicknameError('');
+        }
+        setNickname(value);
+    };
+
+    const handleInputPasswdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+        if (value.length < 5) {
+            setPasswdError('La contraseña debe tener al menos 5 caracteres.');
+        } else {
+            setPasswdError('');
+        }
+        setPasswd(value);
+    };
 
     const Entrar = () => {
-        iniciar();
-    };   
-    
+        handleSubmit();
+    };  
+
+    const handleSubmit = () => {
+        if (!nickname.trim() || nicknameError || passwdError) {
+            alert('Por favor, corrige los errores antes de enviar.');
+            return;
+        }
+        else{
+            iniciar()
+        }
+    };
+
+
+     
     const iniciar = () => {
         
-
-        //getScore();
-        /*(async () => {
-            await recentPlayer()
-        })();*/
         function requestNickname() {
-            if (!nickname.trim()) {
-                alert('Introduce un apodo válido.');
-                return;
-            }
+  
             const newSocket = new WebSocket("ws://localhost:3000/");
             const all = new EventSource("http://localhost:3000/all");
 
             newSocket.onopen = () => {
-                newSocket.send(JSON.stringify({ type: "nickname", nickname })); 
+                newSocket.send(JSON.stringify({ type: "player", nickname, passwd })); 
                 newSocket.send(JSON.stringify({ action: "connectedPlayers" }));
             };
 
             newSocket.onmessage = async (event) => {
                 const data = JSON.parse(event.data);
-                if (data.type === 'error' && data.message === 'Nickname already taken') {
-                    alert('El apodo ya está en uso. Por favor, elige otro.');
-                    setIsNicknameModalOpen(true)
-                    newSocket.close();
-                } else {
-                    setIsNicknameModalOpen(false);
+                switch (data.type) {
+                    case 'reconnect':
+                    case 'register':
+                    default:
+                        //console.log(data.message);
+                        // Lógica para manejar la reconexión exitosa
+                        setIsNicknameModalOpen(false);
 
-                    if (data.event === "connectedPlayers") {
-                        const names = data.data.map((player: { name: string }) => player.name);
-                        jugadoresOnline(names);
-                    }
-                   
-            
-                    switch (data.event) {
-                        case "connectedPlayers":
-                            newSocket.send(JSON.stringify({ action: "lives" }));
-                            break;
-                        case "startGaming":
-                            const teclas = data.data;
-                            setMaxKeysAllowed(teclas.length);
-                            go(teclas)
-                            break;
-                        case "lives":
-                            if (data.data.lives > 0) {
-                                const lives = data.data
+                        if (data.event === "connectedPlayers") {
+                            const names = data.data.map((player: { name: string }) => player.name);
+                            jugadoresOnline(names);
+                        }
+                       
+                        switch (data.event) {
+                            case "connectedPlayers":
+                                newSocket.send(JSON.stringify({ action: "lives" }));
+                                break;
+                            case "startGaming":
+                                const teclas = data.data;
+                                setMaxKeysAllowed(teclas.length);
+                                go(teclas)
+                                break;
+                            case "lives":
+                                if (data.data.lives > 0) {
+                                    const lives = data.data
+                                    setCurrentLives(data.data.lives)
+                                    vidasRestantes(lives)
+                                }
+                                break;
+                            case "lives-":
                                 setCurrentLives(data.data.lives)
-                                vidasRestantes(lives)
-                            }
-                            break;
-                        case "lives-":
-                            setCurrentLives(data.data.lives)
-                            vidasRestantes(data.data.lives)
-                            break;    
-                    }
+                                vidasRestantes(data.data.lives)
+                                break;    
+                        }
+                        break;
+                    case 'error':
+                        console.log(data.message);
+                        alert("nombre de usuario o contraseña incorrecto")
+                        // Lógica para manejar el error de inicio de sesión
+                        break;
                 }
             };
+
+
+
+
+
     
             newSocket.onerror = (error) => {
                 console.error('WebSocket error:', error);
@@ -273,7 +309,6 @@ const SectionHome = () => {
             '.': import('../../../assets/songs/b4.wav'),
 
             '-': import('../../../assets/songs/c5.wav'),
-            // ... (otros archivos de audio)
         };
 
         const refs: Record<string, HTMLAudioElement> = {};
@@ -322,7 +357,6 @@ const SectionHome = () => {
 
             // Envía las teclas al servidor si se ha alcanzado el número máximo permitido
             if (updatedKeys.length >= maxKeysAllowed && !keysSent) {
-                console.log("ya alcanzo el límite");
                 setTimeout(() => {
                     sendKeysToServer(updatedKeys);
                     setPressedKeys([]); // Limpiar las teclas presionadas después de enviarlas
@@ -350,29 +384,9 @@ const SectionHome = () => {
         }
     }
 
-
-    // Short polling
     const mostrarScore = (jugadores: Jugador[]) => {
         setAllJugadores(jugadores);
     };
-    /*async function getScore(){
-        const resp = await fetch("http://localhost:3000/players");
-        const json = await resp.json();
-        const jugadores = json.jugador;
-        //mostrarScore(jugadores);
-        getScoreAlways(5000);
-    };
-    async function getScoreAlways(intervalo: number){
-        const resp = await fetch("http://localhost:3000/players");
-        const json = await resp.json();
-        const jugadores = json.jugador;
-        //mostrarScore(jugadores);
-        //mostrarJugadores(jugadores);
-        setTimeout(() => {
-            getScoreAlways(intervalo);
-        }, intervalo);
-    };*/
-    // LONG POLLING
     function mostrarJugadores(jugadores: Jugador[], ){
         jugadores.forEach((_jugador) => {
             setAllJugadoresRecientes(jugadores);
@@ -387,13 +401,7 @@ const SectionHome = () => {
             return prevJugadores;
         });
     }
-    /*async function recentPlayer() {
-        const resp = await fetch("http://localhost:3000/nuevo-player")
-        const json = await resp.json();
-        const jugadores = json.newPlayer;
-        //mostrarJugadoresRecent(jugadores)
-        recentPlayer();
-    }*/
+
     
 
     return(
@@ -401,15 +409,33 @@ const SectionHome = () => {
             {isNicknameModalOpen && (
                 <div className="divModal">
                     <div className="divStyle">
-                        <h2 className="titleStyle">Introduce tu apodo para jugar</h2>
+                        <h2 className="titleStyle">Melodiano.io</h2>
                         <input
-                            className="inputStyle"
+                            className={`inputStyle ${nicknameError ? 'error' : ''}`}
                             type="text"
                             placeholder="Apodo"
                             value={nickname}
-                            onChange={handleInputChange}
+                            onChange={handleInputNicknameChange}
                         />
-                        <button className="entrarStyle" onClick={Entrar}>Aceptar</button>
+                        {nicknameError && <p style={{ color: 'red', marginTop:'13px', marginBottom:'-5px', fontSize:'12px', fontWeight:'700' }}>{nicknameError}</p>}
+
+                        <input
+                            className={`inputStyleP ${passwdError ? 'error' : ''}`}
+                            type="password"
+                            placeholder="Contraseña"
+                            value={passwd}
+                            onChange={handleInputPasswdChange}
+                        />
+                        {passwdError && <p style={{ color: 'red', marginTop:'4px', marginBottom:'-5px', fontSize:'12px', fontWeight:'700' }}>{passwdError}</p>}
+
+                        <button className="entrarStyle" onClick={Entrar}>Play</button>
+                        <div className="social-networks">
+                            <button className="red-f"><ion-icon name="logo-facebook"/><div>Sign In</div></button>
+                            <button className="red-g"> <img src={iconGoogle}/><div>Sign In</div></button>
+                        </div>
+                        <h5>
+                            Recuerda las vidas se completaran en 24h!
+                        </h5>
                     </div>
                 </div>
             )}
@@ -419,15 +445,25 @@ const SectionHome = () => {
                     {allJugadoresRecientes.length > 0 && (
                         <div>
                             {allJugadoresRecientes
-                                .sort((a, b) => b.score - a.score)
+                                .sort((a, b) => {
+                                    const aIsOnline = connectedPlayers.includes(a.name);
+                                    const bIsOnline = connectedPlayers.includes(b.name);
+                                    if (aIsOnline && !bIsOnline) {
+                                        return -1;
+                                    }
+                                    if (!aIsOnline && bIsOnline) {
+                                        return 1;
+                                    }
+                                    return a.name.localeCompare(b.name);
+                                })
                                 .map((jugador) => (
                                     <div key={jugador.name} className="player">
                                         <h3>{jugador.name}</h3>
                                         <Circle 
-                                            className={`circle-ofline ${connectedPlayers.includes(jugador.name) ? "hidden" : ""}`} 
+                                            className={`circle ${connectedPlayers.includes(jugador.name) ? "online" : "offline"}`} 
                                         />
                                     </div>
-                                ))}
+                            ))}
                         </div>
                     )}
                 </div>

@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
-import Circle from "../../atoms/Circle";
 import iconGoogle from '../../../assets/img/icon-google.png';
+import userPicture from '../../../assets/img/user.jpg';
+import { IonIcon } from '@ionic/react';
+import { logoFacebook } from 'ionicons/icons';
+import fullHeart from '../../../assets/svg/full-heart.svg'
+import PlusSignComponent from "../../atoms/PlusSign";
+import Scroll from "../../atoms/scroll";
 
 interface Jugador {
     id:string;
@@ -18,15 +23,11 @@ const SectionHome = () => {
     const [isKeyPressed, setIsKeyPressed] = useState<Record<string, boolean>>({});
     const [audioRefs, setAudioRefs] = useState<Record<string, HTMLAudioElement>>({});
     const [socket, setSocket] = useState<WebSocket | null>(null);
-    const [bandera, setBandera] = useState(false);
     const [count, setCount] = useState<number | string>('');
     const [pressedKeys, setPressedKeys] = useState<string[]>([]);
     const [maxKeysAllowed, setMaxKeysAllowed] = useState(0);
     const [currentLives, setCurrentLives] = useState(0);
-    const [hearts, setHearts] = useState<JSX.Element[]>([]);
-    const [keysSentToServer, setKeysSentToServer] = useState(false);
-    const [gameStarted, setGameStarted] = useState(false); // Estado para controlar si el juego ha comenzado
-
+    const [gameStarted, setGameStarted] = useState(false); 
 
     // Nuevo jugador al entrar
     const [nickname, setNickname] = useState('');
@@ -67,16 +68,10 @@ const SectionHome = () => {
             iniciar()
         }
     };
-
-
-     
     const iniciar = () => {
-        
         function requestNickname() {
-  
             const newSocket = new WebSocket("ws://localhost:3000/");
-            const all = new EventSource("http://localhost:3000/all");
-
+            const all = new EventSource("http://localhost:3000/all")
             newSocket.onopen = () => {
                 newSocket.send(JSON.stringify({ type: "player", nickname, passwd })); 
                 newSocket.send(JSON.stringify({ action: "connectedPlayers" }));
@@ -88,12 +83,10 @@ const SectionHome = () => {
                     case 'reconnect':
                     case 'register':
                     default:
-                        //console.log(data.message);
-                        // Lógica para manejar la reconexión exitosa
                         setIsNicknameModalOpen(false);
 
                         if (data.event === "connectedPlayers") {
-                            const names = data.data.map((player: { name: string }) => player.name);
+                            const names = data.data.map((player: { name: string }) => player.name); 
                             jugadoresOnline(names);
                         }
                        
@@ -108,48 +101,36 @@ const SectionHome = () => {
                                 break;
                             case "lives":
                                 if (data.data.lives > 0) {
-                                    const lives = data.data
                                     setCurrentLives(data.data.lives)
-                                    vidasRestantes(lives)
                                 }
                                 break;
                             case "lives-":
                                 setCurrentLives(data.data.lives)
-                                vidasRestantes(data.data.lives)
                                 break;    
                         }
                         break;
                     case 'error':
                         console.log(data.message);
                         alert("nombre de usuario o contraseña incorrecto")
-                        // Lógica para manejar el error de inicio de sesión
                         break;
                 }
             };
 
 
 
-
-
-    
             newSocket.onerror = (error) => {
                 console.error('WebSocket error:', error);
             };
-    
             newSocket.onclose = () => {
                 console.log('WebSocket connection closed');
             };
-
             // SSE
-            all.addEventListener("scores", function(event) {
-                const scores = JSON.parse(event.data);
-                mostrarScore(scores);
-                mostrarJugadores(scores);
+            all.addEventListener("infoPlayer", function(event) {
+                const infoPlayer = JSON.parse(event.data);
+                mostrarScore(infoPlayer);
+                mostrarJugadores(infoPlayer);
+                mostrarJugadoresRecent(infoPlayer)
             });
-            all.addEventListener("playIn", function(event) {
-                const playIn = JSON.parse(event.data);
-                mostrarJugadoresRecent(playIn)
-            })
     
             setSocket(newSocket);
         }
@@ -163,35 +144,15 @@ const SectionHome = () => {
         requestNickname();
     };
     
-    function vidasRestantes(lives: number) {
-        let fullHearts = lives;
-        let emptyHearts = 3 - lives; // Si tienes 3 vidas, 0 corazones vacíos; si tienes 2 vidas, 1 corazón vacío, etc.
-        return { fullHearts, emptyHearts};
-        
-    }
-    // Función para renderizar los iconos de corazón lleno y corazón vacío
-    const renderHearts = (fullHearts: number, emptyHearts: number) => {
-        const hearts = [];
-        for (let i = 0; i < fullHearts; i++) {
-            hearts.push(<ion-icon name="heart" key={`full_${i}`} />);
-        }
-        for (let i = 0; i < emptyHearts; i++) {
-            hearts.push(<ion-icon name="heart-outline" key={`empty_${i}`} />);
-        }
-        return hearts;
-    };
-    useEffect(() => {
-        const { fullHearts, emptyHearts } = vidasRestantes(currentLives);
-        const heartsArray = renderHearts(fullHearts, emptyHearts);
-        setHearts(heartsArray);
-    }, [currentLives]);
+
 
     function startGaming() {
         if (socket) {
             socket.send(JSON.stringify({ action: "startGaming" }));
         }
     }
-    function go(teclas:String[]){
+
+    function go(teclas: string[]) {
         const delay = 1000;
         let index = 0;
     
@@ -206,7 +167,7 @@ const SectionHome = () => {
             }
             if (teclas && teclas.length > 0) {
                 const key = teclas[index];
-                setCount(key);
+                setCount(String(key));
                 if (audioRefs[key]) {
                     audioRefs[key].currentTime = 0;
                     audioRefs[key].play();
@@ -261,7 +222,7 @@ const SectionHome = () => {
     useEffect(() => {
         const jugadoresConectadosRecientes = allJugadoresRecientes.filter(jugador => connectedPlayers.includes(jugador.name));
         if (jugadoresConectadosRecientes.length > 0) {
-            setBandera(true)
+            //setBandera(true)
         } else {
             //console.log("No se encontraron jugadores recientes que estén conectados.");
         }
@@ -384,6 +345,9 @@ const SectionHome = () => {
         }
     }
 
+
+
+
     const mostrarScore = (jugadores: Jugador[]) => {
         setAllJugadores(jugadores);
     };
@@ -402,7 +366,22 @@ const SectionHome = () => {
         });
     }
 
-    
+
+
+    useEffect(() => {
+        const getRandomColor = () => {
+          const r = Math.floor(Math.random() * 128);
+          const g = Math.floor(Math.random() * 128);
+          const b = Math.floor(Math.random() * 128);
+          return `rgb(${r}, ${g}, ${b})`;
+        };
+    [...allJugadoresRecientes, ...allJugadores].forEach((jugador) => {
+        const element = document.getElementById(`player-score-${jugador.name}`);
+        if (element) {
+        element.style.backgroundColor = getRandomColor();
+        }
+    });
+}, [allJugadoresRecientes, allJugadores]);
 
     return(
         <section className="section-login">
@@ -430,7 +409,7 @@ const SectionHome = () => {
 
                         <button className="entrarStyle" onClick={Entrar}>Play</button>
                         <div className="social-networks">
-                            <button className="red-f"><ion-icon name="logo-facebook"/><div>Sign In</div></button>
+                            <button className="red-f"><IonIcon icon={logoFacebook} /><div>Sign In</div></button>
                             <button className="red-g"> <img src={iconGoogle}/><div>Sign In</div></button>
                         </div>
                         <h5>
@@ -439,47 +418,27 @@ const SectionHome = () => {
                     </div>
                 </div>
             )}
+
             <div className="players-online">
-                <h2 className="title">Jugadores recientes</h2>
+                <h2 className="title">Tabla de clasificación</h2>
                 <div className="list">
-                    {allJugadoresRecientes.length > 0 && (
-                        <div>
-                            {allJugadoresRecientes
-                                .sort((a, b) => {
-                                    const aIsOnline = connectedPlayers.includes(a.name);
-                                    const bIsOnline = connectedPlayers.includes(b.name);
-                                    if (aIsOnline && !bIsOnline) {
-                                        return -1;
-                                    }
-                                    if (!aIsOnline && bIsOnline) {
-                                        return 1;
-                                    }
-                                    return a.name.localeCompare(b.name);
-                                })
-                                .map((jugador) => (
-                                    <div key={jugador.name} className="player">
-                                        <h3>{jugador.name}</h3>
-                                        <Circle 
-                                            className={`circle ${connectedPlayers.includes(jugador.name) ? "online" : "offline"}`} 
-                                        />
-                                    </div>
-                            ))}
-                        </div>
-                    )}
+                    
                 </div>
             </div>
 
-
             <div className="game">
+                <div className="level-container">
+                    <div className="izquierdo"/>
+                    <div className="level">
+                        Dificultad: facil
+                    </div>
+                    <div className="derecho"/>
+                </div>
+
                 <div id="countdown" className="contador">{count}</div>
-                <div className="start-game" onClick={handlePlayButton}>start!</div>
+                
                     <div className="wrapper">
-                        <header>
-                            <h2>PIANO</h2>
-                            <div className="column vidas">
-                                {hearts}
-                            </div>
-                        </header>
+
                         <ul className="piano-keys" onClick={handlePianoKeyClick}>
                             <li
                                 className={`key white ${isKeyPressed['i'] ? 'pressed' : ''}`} // Clase condicional
@@ -522,28 +481,63 @@ const SectionHome = () => {
 
                             <li
                                 className={`key white ${isKeyPressed['f'] ? 'pressed' : ''}`} // Clase condicional
-                                data-key="f"><span>f</span></li>                      
+                                data-key="f"><span>f</span></li>                    
 
                             
                         </ul>
                     </div>
+                    <div className="start-content">
+                        <div className="start-game" onClick={handlePlayButton}>
+                            {/* <div className="triangulo"/> */}
+                            PLAY
+                        </div>
+                    </div>
             </div>
 
-
-            <div className="score-all">
-                <h2>Puntaje de los jugadores</h2>
-                {allJugadores.length > 0 && (
-                    <div>
-                        {allJugadores
-                            .sort((a, b) => b.score - a.score) // Ordenar por score descendente
-                            .map((jugador) => (
-                                <div key={jugador.name} className="player-score">
-                                    <h3>{jugador.name}</h3>
-                                    <h3>{jugador.score}</h3>
-                                </div>
-                            ))}
+            <div className="lives-players">
+                <div className="lives">
+                    <div className="content-tempo">
+                        <div className="tempo">
+                            Lleno
+                        </div>
                     </div>
-                )}
+                    <PlusSignComponent vidas={currentLives} ><object data={fullHeart} type="image/svg+xml"/></PlusSignComponent>
+                </div>
+                <Scroll>
+                    {[...allJugadoresRecientes, ...allJugadores]
+                        .filter((jugador, index, self) => index === self.findIndex(j => j.name === jugador.name))
+                        .sort((a, b) => {
+                            const aIsOnline = connectedPlayers.includes(a.name);
+                            const bIsOnline = connectedPlayers.includes(b.name);
+
+                            if (aIsOnline && !bIsOnline) {
+                                return -1;
+                            }
+                            if (!aIsOnline && bIsOnline) {
+                                return 1;
+                            }
+                            return a.name.localeCompare(b.name);
+                        })
+                        .map((jugador) => (
+                            <div key={jugador.name} className="player-score" id={`player-score-${jugador.name}`}>
+                                <div className="profile-picture">
+                                    <img src={userPicture} alt="Foto de perfil" />
+                                </div>
+                                <div className="profile-info">
+                                    <h3>{jugador.name}</h3>
+                                    {connectedPlayers.includes(jugador.name) ? (
+                                        <span className="on">En línea</span>
+                                    ) : (
+                                        <span>Offline</span>
+                                    )}
+                                </div>
+                                {!connectedPlayers.includes(jugador.name) && (
+                                    <div className="overlay"></div>
+                                )}
+                            </div>
+                        ))
+                    }
+                </Scroll>
             </div>
         </section> 
     )
